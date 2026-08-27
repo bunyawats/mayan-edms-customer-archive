@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from typing import Any
 
 import httpx
@@ -145,6 +146,12 @@ async def upload_document(
         value = values[field]
         if value:
             await mayan_client.attach_metadata(document_id, metadata_type_ids[field], value)
+
+    # unique_ref is assigned here, not user-entered -- it's not in
+    # METADATA_FIELDS (that list drives the index-relevant, user-editable
+    # fields) so it's never exposed on the edit-metadata form.
+    if "unique_ref" in metadata_type_ids:
+        await mayan_client.attach_metadata(document_id, metadata_type_ids["unique_ref"], str(uuid.uuid4()))
 
     await mayan_client.rebuild_index()
     return document

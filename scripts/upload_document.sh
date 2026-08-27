@@ -81,6 +81,7 @@ MT_CUSTOMER=$(lookup_id "/metadata_types/" name customer_id)
 MT_ACCOUNT=$(lookup_id "/metadata_types/" name account_id)
 MT_APPLICATION=$(lookup_id "/metadata_types/" name application_id)
 MT_CATEGORY=$(lookup_id "/metadata_types/" name category)
+MT_UNIQUE_REF=$(lookup_id "/metadata_types/" name unique_ref)
 
 if [[ -n "$APPLICATION_ID" ]]; then
   DOC_TYPE_ID=$(lookup_id "/document_types/" label "Application Document")
@@ -116,6 +117,7 @@ attach_metadata "$MT_CUSTOMER" "$CUSTOMER_ID"
 [[ -n "$ACCOUNT_ID" ]] && attach_metadata "$MT_ACCOUNT" "$ACCOUNT_ID"
 [[ -n "$APPLICATION_ID" ]] && attach_metadata "$MT_APPLICATION" "$APPLICATION_ID"
 attach_metadata "$MT_CATEGORY" "$CATEGORY"
+attach_metadata "$MT_UNIQUE_REF" "$(python3 -c 'import uuid; print(uuid.uuid4())')"
 
 log "Rebuilding the Customer Archive index"
 INDEX_ID=$(api_get "/index_templates/" | python3 -c "

@@ -9,7 +9,7 @@
   {% endif %}
 
   <table class="metadata-table">
-    {% for field in ["customer_id", "account_id", "application_id", "category"] %}
+    {% for field in ["customer_id", "account_id", "application_id", "category", "unique_ref"] %}
     {% if field in metadata %}
     <tr><th>{{ field }}</th><td>{{ metadata[field] }}</td></tr>
     {% endif %}

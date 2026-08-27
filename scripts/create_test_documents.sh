@@ -70,6 +70,9 @@ MT_CUSTOMER=$(lookup_id "/metadata_types/" name customer_id)
 MT_ACCOUNT=$(lookup_id "/metadata_types/" name account_id)
 MT_APPLICATION=$(lookup_id "/metadata_types/" name application_id)
 MT_CATEGORY=$(lookup_id "/metadata_types/" name category)
+MT_UNIQUE_REF=$(lookup_id "/metadata_types/" name unique_ref)
+
+new_uuid() { python3 -c "import uuid; print(uuid.uuid4())"; }
 
 DT_CUSTOMER=$(lookup_id "/document_types/" label "Customer Document")
 DT_ACCOUNT=$(lookup_id "/document_types/" label "Account Document")
@@ -157,16 +160,16 @@ FILE_PREFIX="${CUSTOMER_ID}_"
 log "Creating documents for $CUSTOMER_ID / $ACCOUNT_ID / $APPLICATION_ID"
 
 create_doc "${FILE_PREFIX}National_ID_Card.pdf" "$DT_CUSTOMER" \
-  "$MT_CUSTOMER:$CUSTOMER_ID" "$MT_CATEGORY:Photo ID"
+  "$MT_CUSTOMER:$CUSTOMER_ID" "$MT_CATEGORY:Photo ID" "$MT_UNIQUE_REF:$(new_uuid)"
 
 create_doc "${FILE_PREFIX}Welcome_Letter.pdf" "$DT_ACCOUNT" \
-  "$MT_CUSTOMER:$CUSTOMER_ID" "$MT_ACCOUNT:$ACCOUNT_ID" "$MT_CATEGORY:Welcome Letter"
+  "$MT_CUSTOMER:$CUSTOMER_ID" "$MT_ACCOUNT:$ACCOUNT_ID" "$MT_CATEGORY:Welcome Letter" "$MT_UNIQUE_REF:$(new_uuid)"
 
 create_doc "${FILE_PREFIX}Bank_Statement.pdf" "$DT_APPLICATION" \
-  "$MT_CUSTOMER:$CUSTOMER_ID" "$MT_ACCOUNT:$ACCOUNT_ID" "$MT_APPLICATION:$APPLICATION_ID" "$MT_CATEGORY:Financial Records"
+  "$MT_CUSTOMER:$CUSTOMER_ID" "$MT_ACCOUNT:$ACCOUNT_ID" "$MT_APPLICATION:$APPLICATION_ID" "$MT_CATEGORY:Financial Records" "$MT_UNIQUE_REF:$(new_uuid)"
 
 create_doc "${FILE_PREFIX}Loan_Contract.pdf" "$DT_APPLICATION" \
-  "$MT_CUSTOMER:$CUSTOMER_ID" "$MT_ACCOUNT:$ACCOUNT_ID" "$MT_APPLICATION:$APPLICATION_ID" "$MT_CATEGORY:Agreements"
+  "$MT_CUSTOMER:$CUSTOMER_ID" "$MT_ACCOUNT:$ACCOUNT_ID" "$MT_APPLICATION:$APPLICATION_ID" "$MT_CATEGORY:Agreements" "$MT_UNIQUE_REF:$(new_uuid)"
 
 log "Rebuilding the Customer Archive index"
 INDEX_ID=$(api_get "/index_templates/" | python3 -c "

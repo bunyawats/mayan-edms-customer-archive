@@ -15,6 +15,7 @@
     {% endfor %}
   </select>
   <input name="label" placeholder="Filename contains" value="{{ filters.label or '' }}">
+  <input name="unique_ref" placeholder="Unique Ref" value="{{ filters.unique_ref or '' }}">
   <button type="submit">Search</button>
   <span id="search-indicator" class="htmx-indicator">Searching…</span>
 </form>

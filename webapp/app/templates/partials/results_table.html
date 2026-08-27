@@ -1,6 +1,6 @@
 {% set base_qs = "customer_id=" ~ (filters.customer_id or "") ~ "&account_id=" ~ (filters.account_id or "")
   ~ "&application_id=" ~ (filters.application_id or "") ~ "&category=" ~ (filters.category or "")
-  ~ "&label=" ~ (filters.label or "") %}
+  ~ "&label=" ~ (filters.label or "") ~ "&unique_ref=" ~ (filters.unique_ref or "") %}
 {% set page_ids = documents | map(attribute="id") | list %}
 {% set page_selected_count = documents | selectattr("id", "in", selected_ids) | list | length %}
 
@@ -22,6 +22,7 @@
   <input type="hidden" name="application_id" value="{{ filters.application_id or '' }}">
   <input type="hidden" name="category" value="{{ filters.category or '' }}">
   <input type="hidden" name="label" value="{{ filters.label or '' }}">
+  <input type="hidden" name="unique_ref" value="{{ filters.unique_ref or '' }}">
   <input type="hidden" name="page" value="{{ page }}">
 
   <div class="results-toolbar">

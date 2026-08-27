@@ -15,13 +15,16 @@ from ..templating import render, render_error
 router = APIRouter()
 
 
-def _filters(customer_id: str, account_id: str, application_id: str, category: str, label: str) -> dict[str, str]:
+def _filters(
+    customer_id: str, account_id: str, application_id: str, category: str, label: str, unique_ref: str = ""
+) -> dict[str, str]:
     return {
         "customer_id": customer_id,
         "account_id": account_id,
         "application_id": application_id,
         "category": category,
         "label": label,
+        "unique_ref": unique_ref,
     }
 
 
@@ -70,9 +73,10 @@ async def list_documents(
     application_id: str = "",
     category: str = "",
     label: str = "",
+    unique_ref: str = "",
     page: int = 1,
 ):
-    filters = _filters(customer_id, account_id, application_id, category, label)
+    filters = _filters(customer_id, account_id, application_id, category, label, unique_ref)
     page = max(1, page)
     try:
         documents, total = await service.search_documents(filters, page=page, page_size=settings.page_size)
@@ -254,6 +258,7 @@ async def bulk_delete_confirm(
     application_id: str = Form(""),
     category: str = Form(""),
     label: str = Form(""),
+    unique_ref: str = Form(""),
     page: int = Form(1),
 ):
     # Selection lives server-side (selection_store), not in this request's
@@ -262,7 +267,7 @@ async def bulk_delete_confirm(
     # exception for the case where that store *doesn't* exist. It does
     # here, so this reads it directly rather than trusting anything the
     # client could echo back.
-    filters = _filters(customer_id, account_id, application_id, category, label)
+    filters = _filters(customer_id, account_id, application_id, category, label, unique_ref)
     unique_ids, error = _dedupe_and_cap(selection_store.get_selected(request.state.session_id))
     items: list = []
     if unique_ids and not error:
@@ -285,9 +290,10 @@ async def bulk_delete_documents(
     application_id: str = Form(""),
     category: str = Form(""),
     label: str = Form(""),
+    unique_ref: str = Form(""),
     page: int = Form(1),
 ):
-    filters = _filters(customer_id, account_id, application_id, category, label)
+    filters = _filters(customer_id, account_id, application_id, category, label, unique_ref)
     session_id = request.state.session_id
     unique_ids, error = _dedupe_and_cap(selection_store.get_selected(session_id))
     status_message, status_class = None, "alert-info"
