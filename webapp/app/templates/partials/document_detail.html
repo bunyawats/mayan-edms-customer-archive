@@ -1,0 +1,24 @@
+<div class="modal-box">
+  <h2>{{ document.label }}</h2>
+  <p class="doc-type">{{ document.document_type.label }}</p>
+
+  {% if preview_available %}
+  <img class="preview" src="/documents/{{ document.id }}/preview" alt="Preview of {{ document.label }}">
+  {% else %}
+  <p class="empty">No preview available.</p>
+  {% endif %}
+
+  <table class="metadata-table">
+    {% for field in ["customer_id", "account_id", "application_id", "category"] %}
+    {% if field in metadata %}
+    <tr><th>{{ field }}</th><td>{{ metadata[field] }}</td></tr>
+    {% endif %}
+    {% endfor %}
+  </table>
+
+  <div class="modal-actions">
+    <a href="/documents/{{ document.id }}/download" target="_blank">Download</a>
+    <button type="button" hx-get="/documents/{{ document.id }}/edit" hx-target="#modal" hx-swap="innerHTML">Edit metadata</button>
+    <button type="button" onclick="document.getElementById('modal').innerHTML=''">Close</button>
+  </div>
+</div>

@@ -1,0 +1,202 @@
+:root {
+  color-scheme: light;
+  --border: #d8dbe0;
+  --text: #1f2328;
+  --muted: #6b7280;
+  --accent: #2563eb;
+  --danger: #b91c1c;
+  --success: #166534;
+  --bg-alt: #f6f7f9;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text);
+  background: #fff;
+}
+
+.topbar {
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem;
+  background: var(--bg-alt);
+  border-radius: 6px;
+}
+
+.search-form input {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+button, input[type=submit] {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+}
+
+button[type=submit], .toolbar button {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.selection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.selection-status button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirm-list { margin-bottom: 0.75rem; }
+
+table.confirm-table { width: 100%; }
+table.confirm-table th, table.confirm-table td {
+  text-align: left;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+button.danger {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
+table.results {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.results th, table.results td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.row-actions { display: flex; gap: 0.5rem; align-items: center; white-space: nowrap; }
+
+.pagination {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.empty { color: var(--muted); text-align: center; }
+
+#modal:not(:empty) {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3rem 1rem;
+  z-index: 10;
+}
+
+.modal-box {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 480px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modal-box label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.modal-box label small { color: var(--muted); display: block; font-weight: normal; }
+
+.modal-box input {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-top: 0.25rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.preview {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin: 0.75rem 0;
+}
+
+.metadata-table { width: 100%; margin-bottom: 1rem; }
+.metadata-table th { text-align: left; color: var(--muted); font-weight: normal; padding-right: 0.5rem; }
+
+.alert {
+  padding: 0.6rem 0.8rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.alert-success { background: #ecfdf5; color: var(--success); border: 1px solid #a7f3d0; }
+.alert-error { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+.alert-info { background: #eff6ff; color: var(--accent); border: 1px solid #bfdbfe; }
+
+.htmx-indicator { opacity: 0; }
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }

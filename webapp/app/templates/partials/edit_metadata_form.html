@@ -1,0 +1,17 @@
+<div class="modal-box">
+  <h2>Edit metadata &mdash; {{ document.label }}</h2>
+  <form hx-patch="/documents/{{ document.id }}" hx-target="#modal" hx-swap="innerHTML" hx-indicator="#edit-indicator">
+    {% for field in ["customer_id", "account_id", "application_id", "category"] %}
+    {% if field in metadata %}
+    <label>{{ field }}
+      <input name="{{ field }}" value="{{ metadata[field] }}" required>
+    </label>
+    {% endif %}
+    {% endfor %}
+    <div class="modal-actions">
+      <button type="submit">Save</button>
+      <button type="button" hx-get="/documents/{{ document.id }}" hx-target="#modal" hx-swap="innerHTML">Cancel</button>
+      <span id="edit-indicator" class="htmx-indicator">Saving…</span>
+    </div>
+  </form>
+</div>

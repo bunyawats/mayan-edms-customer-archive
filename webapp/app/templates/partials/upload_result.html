@@ -1,0 +1,10 @@
+<div class="modal-box">
+  <div class="alert alert-success">
+    Uploaded &ldquo;{{ label }}&rdquo;. Index rebuild triggered &mdash; give it a few seconds to
+    settle before it shows up in search.
+  </div>
+  <button type="button" onclick="document.getElementById('modal').innerHTML=''">Close</button>
+</div>
+<div id="results" hx-swap-oob="innerHTML">
+  {% include "partials/results_table.html" %}
+</div>

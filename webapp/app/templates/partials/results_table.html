@@ -1,0 +1,70 @@
+{% set base_qs = "customer_id=" ~ (filters.customer_id or "") ~ "&account_id=" ~ (filters.account_id or "")
+  ~ "&application_id=" ~ (filters.application_id or "") ~ "&category=" ~ (filters.category or "")
+  ~ "&label=" ~ (filters.label or "") %}
+
+{% if status_message %}
+<div class="alert {{ status_class or 'alert-info' }}">{{ status_message }}</div>
+{% endif %}
+
+<form id="bulk-delete-form">
+  <input type="hidden" name="customer_id" value="{{ filters.customer_id or '' }}">
+  <input type="hidden" name="account_id" value="{{ filters.account_id or '' }}">
+  <input type="hidden" name="application_id" value="{{ filters.application_id or '' }}">
+  <input type="hidden" name="category" value="{{ filters.category or '' }}">
+  <input type="hidden" name="label" value="{{ filters.label or '' }}">
+  <input type="hidden" name="page" value="{{ page }}">
+
+  <div class="results-toolbar">
+    <span>{{ total }} document{{ "s" if total != 1 else "" }}</span>
+    <span class="selection-status">
+      <span id="selected-count">0 selected</span>
+      <button type="button" id="bulk-delete-btn" disabled
+              hx-post="/documents/bulk-delete/confirm" hx-target="#modal" hx-swap="innerHTML">Delete selected</button>
+    </span>
+  </div>
+
+  <table class="results">
+    <thead>
+      <tr>
+        <th><input type="checkbox" class="select-all" title="Select all on this page"></th>
+        <th>Label</th>
+        <th>Type</th>
+        <th>Customer</th>
+        <th>Account</th>
+        <th>Application</th>
+        <th>Category</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for doc in documents %}
+      <tr id="doc-row-{{ doc.id }}">
+        <td><input type="checkbox" name="document_id" value="{{ doc.id }}"></td>
+        <td><a href="#" hx-get="/documents/{{ doc.id }}" hx-target="#modal" hx-swap="innerHTML">{{ doc.label }}</a></td>
+        <td>{{ doc.document_type.label }}</td>
+        <td>{{ doc._metadata.get("customer_id", "") }}</td>
+        <td>{{ doc._metadata.get("account_id", "") }}</td>
+        <td>{{ doc._metadata.get("application_id", "") }}</td>
+        <td>{{ doc._metadata.get("category", "") }}</td>
+        <td class="row-actions">
+          <a href="/documents/{{ doc.id }}/download" target="_blank">Download</a>
+          <button type="button" hx-delete="/documents/{{ doc.id }}" hx-target="#doc-row-{{ doc.id }}"
+                  hx-swap="outerHTML" hx-confirm="Delete this document? It will be moved to the Mayan trash.">Delete</button>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="empty">No documents match.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</form>
+
+<nav class="pagination">
+  {% if page > 1 %}
+  <button hx-get="/documents?{{ base_qs }}&page={{ page - 1 }}" hx-target="#results" hx-swap="innerHTML">&laquo; Prev</button>
+  {% endif %}
+  <span>Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+  <button hx-get="/documents?{{ base_qs }}&page={{ page + 1 }}" hx-target="#results" hx-swap="innerHTML">Next &raquo;</button>
+  {% endif %}
+</nav>

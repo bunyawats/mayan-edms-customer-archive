@@ -20,15 +20,19 @@ Customer Archive
 ```
 
 There is no Mayan source in this repo — `docker-compose.yml` pulls
-`mayanedms/mayanedms:latest`. All the real content here is the setup/upload
+`mayanedms/mayanedms:latest`. The real content here is (a) the setup/upload
 scripts and docs that configure a running instance and file documents into
-it via `/api/v4/`.
+it via `/api/v4/`, and (b) `webapp/`, a FastAPI + HTMX app (its own
+`docker-compose.yml` service) giving a non-technical user CRUD over
+documents in that hierarchy — upload with preview, metadata-criteria
+search with pagination, single/bulk delete — without touching curl or the
+Mayan admin UI.
 
 ## Commands
 
 ```bash
-# Start the stack (Postgres 15, Redis, Mayan app on :8000)
-docker compose up -d
+# Start the stack (Postgres 15, Redis, Mayan app on :8000, webapp on :8080)
+docker compose up -d --build
 
 # One-time, against a fresh instance: creates metadata types, document
 # types, and the "Customer Archive" index template. NOT idempotent — see
@@ -101,6 +105,59 @@ changes.
 `document-heiracry.txt` is the original design plan the hierarchy was
 built from; `docs/document-hierarchy-setup.md` is the corrected,
 authoritative version — prefer the latter when they disagree.
+
+## `webapp/` — the FastAPI + HTMX UI
+
+Runs as the `webapp` service in `docker-compose.yml` (port 8080), talking
+to Mayan's REST API with **one shared service-account token** (from
+`MAYAN_AUTOADMIN_USERNAME`/`PASSWORD`, same credentials the scripts use) —
+there's no per-user login, by design, for this POC. See
+`docs/webapp-implementation-plan.md` for the full design writeup
+(route table, why search works the way it does, decisions inherited from
+the `list-pagination-bulk-actions` skill), and its "Bugs found and fixed"
+section for two non-obvious things worth knowing before touching this code:
+
+- **`mayan_client.py`'s httpx client sets `Accept: application/json` as a
+  default header.** Without it, Mayan's DRF auth endpoint returns its HTML
+  browsable-API page instead of a JSON token — even on a *successful*
+  login — so don't remove it or add a new httpx client that skips it.
+- **`documents_service._attach_metadata` tolerates a 404 per document**
+  (drops it from the result set rather than failing the batch), because
+  the results-table refresh right after a delete can still momentarily see
+  the just-deleted document in Mayan's list endpoint.
+
+It reimplements the same upload sequence as `scripts/upload_document.sh`
+(create document → upload file with `action_name=replace` → attach
+metadata fields → rebuild index), so **gotchas #1-4 in
+`docs/document-hierarchy-setup.md` apply here too** — don't relearn them,
+read that doc first.
+
+**Metadata search is exact-match, computed in Python, not delegated to
+Mayan's advanced search API.** Verified live that Mayan's
+`metadata__metadata_type__name` + `metadata__value` query params don't AND
+against the same metadata row (each fans out independently), so
+`documents_service.search_documents` fetches the full document list
+(capped at `MAX_SEARCH_CANDIDATES = 1000` — a POC-scale limitation, not an
+oversight) and filters exactly per document. This means our own pagination
+is computed on the filtered list, not Mayan's `page`/`page_size`.
+
+`DELETE /api/v4/documents/{id}/` moves a document to Mayan's **trash**, not
+a hard delete (confirmed via the endpoint's own OPTIONS description) — so
+single/bulk delete in this app are recoverable through Mayan directly, not
+destructive.
+
+**Bulk delete goes through a confirm dialog, not a plain `hx-confirm`.**
+Checking rows (header `.select-all` checkbox included) is pure client-side
+JS (`base.html`, no server round-trip); "Delete selected" opens
+`POST /documents/bulk-delete/confirm`, which re-fetches each selected
+document's *current* label/type/metadata from Mayan and renders them in
+`#modal` before the user commits — see
+`docs/webapp-implementation-plan.md`'s "Header select-all + bulk-delete
+confirm dialog" section for why (adapted from a heavier reference project)
+and its scope-decisions note on why trusting the client-submitted id list
+at that point is fine here specifically (no server-side selection store
+exists to re-derive it from, by design — the `list-pagination-bulk-actions`
+skill now documents this as an explicit exception, not a violation).
 
 ## Working with credentials
 

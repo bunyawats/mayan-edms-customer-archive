@@ -35,6 +35,18 @@ services:
       - db
       - redis
 
+  webapp:
+    build: ./webapp
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      MAYAN_URL: http://app:8000
+      MAYAN_USER: ${MAYAN_AUTOADMIN_USERNAME}
+      MAYAN_PASSWORD: ${MAYAN_AUTOADMIN_PASSWORD}
+    depends_on:
+      - app
+
 volumes:
   postgres_data:
   redis_data:

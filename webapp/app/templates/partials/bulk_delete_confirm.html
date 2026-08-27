@@ -1,0 +1,47 @@
+<div class="modal-box">
+  <h2>Delete {{ items | length }} document{{ "s" if items | length != 1 else "" }}</h2>
+
+  {% if error %}
+  <div class="alert alert-error">{{ error }}</div>
+  {% endif %}
+
+  {% if not items %}
+  <p class="empty">Nothing selected &mdash; check one or more documents first.</p>
+  <div class="modal-actions">
+    <button type="button" onclick="document.getElementById('modal').innerHTML=''">Close</button>
+  </div>
+  {% else %}
+  <div class="confirm-list">
+    <table class="metadata-table confirm-table">
+      <thead><tr><th>Label</th><th>Type</th><th>Customer</th><th>Category</th></tr></thead>
+      <tbody>
+        {% for doc in items %}
+        <tr>
+          <td>{{ doc.label }}</td>
+          <td>{{ doc.document_type }}</td>
+          <td>{{ doc.metadata.get("customer_id", "") }}</td>
+          <td>{{ doc.metadata.get("category", "") }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="empty">These will be moved to the Mayan trash, not permanently deleted.</p>
+
+  <form hx-post="/documents/bulk-delete" hx-target="#results" hx-swap="innerHTML">
+    {% for id in document_ids %}
+    <input type="hidden" name="document_id" value="{{ id }}">
+    {% endfor %}
+    <input type="hidden" name="customer_id" value="{{ filters.customer_id or '' }}">
+    <input type="hidden" name="account_id" value="{{ filters.account_id or '' }}">
+    <input type="hidden" name="application_id" value="{{ filters.application_id or '' }}">
+    <input type="hidden" name="category" value="{{ filters.category or '' }}">
+    <input type="hidden" name="label" value="{{ filters.label or '' }}">
+    <input type="hidden" name="page" value="{{ page }}">
+    <div class="modal-actions">
+      <button type="submit" class="danger">Confirm delete</button>
+      <button type="button" onclick="document.getElementById('modal').innerHTML=''">Cancel</button>
+    </div>
+  </form>
+  {% endif %}
+</div>
