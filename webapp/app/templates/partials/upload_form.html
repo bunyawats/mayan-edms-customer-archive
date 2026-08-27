@@ -11,8 +11,16 @@
     <label>Application ID <small>(requires Account ID; leave blank for account-level)</small>
       <input name="application_id">
     </label>
-    <label>Category (required) <small>e.g. Photo ID, Welcome Letter, Financial Records, Agreements</small>
-      <input name="category" required>
+    <label>Category (required)
+      <select name="category" id="category-select" required>
+        <option value="" disabled selected>Select category&hellip;</option>
+        {% for option in category_options %}
+        <option value="{{ option }}">{{ option }}</option>
+        {% endfor %}
+        <option value="__new__">+ Add new category&hellip;</option>
+      </select>
+      <input type="text" name="category_new" id="category-new" placeholder="New category name"
+             style="display:none" required>
     </label>
     <label>File (required)
       <input type="file" name="file" required>

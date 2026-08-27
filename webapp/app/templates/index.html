@@ -8,7 +8,12 @@
   <input name="customer_id" placeholder="Customer ID" value="{{ filters.customer_id or '' }}">
   <input name="account_id" placeholder="Account ID" value="{{ filters.account_id or '' }}">
   <input name="application_id" placeholder="Application ID" value="{{ filters.application_id or '' }}">
-  <input name="category" placeholder="Category" value="{{ filters.category or '' }}">
+  <select name="category">
+    <option value="">All categories</option>
+    {% for option in category_options %}
+    <option value="{{ option }}" {% if option == filters.category %}selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
   <input name="label" placeholder="Filename contains" value="{{ filters.label or '' }}">
   <button type="submit">Search</button>
   <span id="search-indicator" class="htmx-indicator">Searching…</span>

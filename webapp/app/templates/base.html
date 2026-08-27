@@ -39,6 +39,15 @@
         });
       } else if (e.target.matches('input[name="document_id"]')) {
         updateSelectAllState();
+      } else if (e.target.matches("#category-select")) {
+        // "+ Add new category..." reveals the free-text fallback field;
+        // create_document resolves the sentinel server-side too, so this
+        // is a convenience, not the only path that works.
+        var newInput = document.getElementById("category-new");
+        var isNew = e.target.value === "__new__";
+        newInput.style.display = isNew ? "" : "none";
+        if (!isNew) newInput.value = "";
+        else newInput.focus();
       }
     });
 

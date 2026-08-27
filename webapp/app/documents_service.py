@@ -101,6 +101,19 @@ async def search_documents(filters: dict[str, str], page: int, page_size: int) -
     return page_items, total
 
 
+async def get_category_options() -> list[str]:
+    """Distinct category values currently in use across documents, for the
+    search filter's dropdown. Reflects what's actually in Mayan (as of this
+    call) rather than a hardcoded list, so a category only shows up once a
+    document uses it. Fetches the same POC-scale-capped document set
+    search_documents does — see MAX_SEARCH_CANDIDATES above."""
+    documents = await _attach_metadata(await _fetch_all_documents())
+    categories = {d["_metadata"].get("category") for d in documents}
+    categories.discard(None)
+    categories.discard("")
+    return sorted(categories)
+
+
 async def get_metadata_map(document_id: int) -> dict[str, str]:
     entries = await mayan_client.get_document_metadata(document_id)
     return {entry["metadata_type"]["name"]: entry["value"] for entry in entries}

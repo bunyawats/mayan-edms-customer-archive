@@ -1,3 +1,4 @@
+import asyncio
 import math
 
 import httpx
@@ -39,7 +40,10 @@ async def index(request: Request):
     selection_store.clear_selected(request.state.session_id)
     filters = _filters("", "", "", "", "")
     try:
-        documents, total = await service.search_documents(filters, page=1, page_size=settings.page_size)
+        (documents, total), category_options = await asyncio.gather(
+            service.search_documents(filters, page=1, page_size=settings.page_size),
+            service.get_category_options(),
+        )
     except httpx.HTTPError as exc:
         return render_error(request, f"Could not reach Mayan: {exc}")
     total_pages = max(1, math.ceil(total / settings.page_size))
@@ -53,6 +57,7 @@ async def index(request: Request):
             "total": total,
             "total_pages": total_pages,
             "selected_ids": set(),
+            "category_options": category_options,
         },
     )
 
@@ -106,7 +111,11 @@ async def select_documents(request: Request, document_id: str = Form(""), checke
 
 @router.get("/documents/new")
 async def new_document_form(request: Request):
-    return render(request, "partials/upload_form.html", {})
+    try:
+        category_options = await service.get_category_options()
+    except httpx.HTTPError as exc:
+        return render_error(request, f"Could not load categories: {exc}")
+    return render(request, "partials/upload_form.html", {"category_options": category_options})
 
 
 @router.post("/documents")
@@ -116,14 +125,17 @@ async def create_document(
     account_id: str = Form(""),
     application_id: str = Form(""),
     category: str = Form(...),
+    category_new: str = Form(""),
     file: UploadFile = File(...),
 ):
-    customer_id, account_id, application_id, category = (
-        customer_id.strip(),
-        account_id.strip(),
-        application_id.strip(),
-        category.strip(),
-    )
+    customer_id, account_id, application_id = customer_id.strip(), account_id.strip(), application_id.strip()
+    # "__new__" is the select's sentinel for "+ Add new category..." (see
+    # upload_form.html) — the actual value lives in the category_new field
+    # it reveals. Resolving it here rather than in JS keeps this working
+    # even if the client-side toggle script doesn't run.
+    category = category_new.strip() if category == "__new__" else category.strip()
+    if not category:
+        return render_error(request, "Category is required.")
     if application_id and not account_id:
         return render_error(request, "Application ID requires an Account ID to also be set.")
     if not isinstance(file, StarletteUploadFile) or not file.filename:
