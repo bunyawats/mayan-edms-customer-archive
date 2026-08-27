@@ -1,0 +1,43 @@
+
+📁 Customer Archive
+   └── 📁 Cust-1001
+          │
+          ├── 📁 Photo ID (Customer-Level Doc Type)
+          │      └── 📄 National_ID_Card.pdf
+          │
+          └── 📁 Acc-88210 (Account ID)
+                 │
+                 ├── 📁 Welcome Letter (Account-Level Doc Type)
+                 │      └── 📄 Welcome_Letter.pdf
+                 │
+                 └── 📁 App-90042 (Application ID)
+                        ├── 📁 Financial Records
+                        │      └── 📄 Bank_Statement.pdf
+                        └── 📁 Agreements
+                               └── 📄 Loan_Contract.pdf
+
+
+
+To model this dynamic multi-level hierarchy in Mayan EDMS, use Index Templates combined with Metadata Types and Document Types. Mayan indexes are virtual directory trees generated dynamically from document metadata without duplicating underlying files.
+1. Metadata Types Setup
+Create the following metadata fields under System > Setup > Metadata Types:
+⚬ customer_id (e.g., Cust-1001)
+⚬ account_id (e.g., Acc-88210 — optional for customer-level docs)
+⚬ application_id (e.g., App-90042 — optional for customer- and account-level docs)
+⚬ category (e.g., Photo ID, Welcome Letter, Financial Records, Agreements)
+2. Document Types Setup
+Create your Document Types under System > Setup > Document Types and associate the metadata fields:
+Document Type	Associated Metadata	Required Metadata
+Customer Document	customer_id, category	customer_id, category
+Account Document	customer_id, account_id, category	customer_id, account_id, category
+Application Document	customer_id, account_id, application_id, category	customer_id, account_id, application_id, category
+3. Index Template Hierarchy
+Create a new index named Customer Archive under System > Setup > Indexes and build the node hierarchy using Django template syntax.
+⚬ Root Node: Customer Archive ⚬ Level 1 Node (Customer): ⚬ Template: {{ document.metadata_value_of.customer_id }} ⚬ Condition: {% if document.metadata_value_of.customer_id %}True{% endif %} ⚬ Children: ⚬ Branch A — Customer-Level Docs: ⚬ Template: {{ document.metadata_value_of.category }} ⚬ Condition: {% if not document.metadata_value_of.account_id and not document.metadata_value_of.application_id %}True{% endif %} ⚬ Branch B — Account Level: ⚬ Template: {{ document.metadata_value_of.account_id }} ⚬ Condition: {% if document.metadata_value_of.account_id %}True{% endif %} ⚬ Children: ⚬ Branch B1 — Account-Level Docs: ⚬ Template: {{ document.metadata_value_of.category }} ⚬ Condition: {% if not document.metadata_value_of.application_id %}True{% endif %} ⚬ Branch B2 — Application Level: ⚬ Template: {{ document.metadata_value_of.application_id }} ⚬ Condition: {% if document.metadata_value_of.application_id %}True{% endif %} ⚬ Children: ⚬ Template: {{ document.metadata_value_of.category }}
+4. Document Ingestion Mapping
+When uploading files, assign the corresponding document type and metadata:
+⚬ National_ID_Card.pdf \rightarrow customer_id: Cust-1001, category: Photo ID
+⚬ Welcome_Letter.pdf \rightarrow customer_id: Cust-1001, account_id: Acc-88210, category: Welcome Letter
+⚬ Bank_Statement.pdf \rightarrow customer_id: Cust-1001, account_id: Acc-88210, application_id: App-90042, category: Financial Records
+⚬ Loan_Contract.pdf \rightarrow customer_id: Cust-1001, account_id: Acc-88210, application_id: App-90042, category: Agreements
+Mayan EDMS will automatically evaluate the template conditions and render the exact tree structure in the web UI and via WebDAV.
