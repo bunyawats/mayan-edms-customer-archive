@@ -3,3 +3,4 @@
 test-docs/
 __pycache__/
 *.pyc
+.idea/
