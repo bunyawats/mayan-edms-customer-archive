@@ -46,7 +46,7 @@ the "Customer Archive" index template and the three document types first
 
 ## Scripts
 
-All three live in `scripts/`, take `MAYAN_URL` / `MAYAN_USER` /
+All four live in `scripts/`, take `MAYAN_URL` / `MAYAN_USER` /
 `MAYAN_PASSWORD` as env vars (defaults: `http://localhost:8000`, `admin`),
 and look up metadata/document type IDs by name at runtime rather than
 hardcoding them — so they keep working after a fresh `setup_document_hierarchy.sh`
@@ -54,7 +54,8 @@ run even though the IDs come out different each time.
 
 | Script | Purpose |
 |---|---|
-| `setup_document_hierarchy.sh` | One-time: creates the metadata types, document types, and index template tree. Run once per instance. |
+| `setup_document_hierarchy.sh` | One-time: creates the metadata types, document types, and the nested "Customer Archive" index template tree. Run once per instance. |
+| `add_flat_indexes.sh` | One-time, run after `setup_document_hierarchy.sh`: adds the three flat "Customer" / "Account" / "Application" index templates (see below). Idempotent — safe to re-run. |
 | `create_test_documents.sh <customer_id> <account_id> <application_id>` | Generates a full 4-document sample set for one customer (dummy PDFs), matching the original plan's ingestion mapping. Good for smoke-testing a fresh customer branch end to end. |
 | `upload_document.sh <file> <customer_id> <category> [account_id] [application_id]` | Files one **real** file into the hierarchy at whatever level you specify — customer, account, or application — inferring the document type from which IDs you pass. |
 
@@ -67,7 +68,54 @@ MAYAN_PASSWORD=... ./scripts/upload_document.sh test-docs/test-doc.pdf Cust-1001
 
 # One real file, customer-level only (no account_id/application_id)
 MAYAN_PASSWORD=... ./scripts/upload_document.sh test-docs/id-scan.pdf Cust-1003 "Photo ID"
+
+# Add the three flat indexes (one-time, after setup_document_hierarchy.sh)
+MAYAN_PASSWORD=... ./scripts/add_flat_indexes.sh
 ```
+
+## Flat indexes: Customer / Account / Application
+
+Three additional index templates, alongside the nested "Customer Archive"
+one — built by `scripts/add_flat_indexes.sh`, not
+`setup_document_hierarchy.sh`. Where "Customer Archive" nests
+`customer_id → account_id → application_id → category`, each of these is a
+**single flat level**: every document carrying that one metadata field,
+grouped by its value, with no further split by category or document type.
+
+```
+Customer                              Account                          Application
+└── Cust-1001                         └── Acc-88210                    └── App-90042
+       ├── National_ID_Card.pdf              ├── Welcome_Letter.pdf           ├── Bank_Statement.pdf
+       ├── Welcome_Letter.pdf                ├── Bank_Statement.pdf           └── Loan_Contract.pdf
+       ├── Bank_Statement.pdf                └── Loan_Contract.pdf
+       └── Loan_Contract.pdf
+```
+
+So the Account index's `Acc-88210` bucket mixes an Account-level document
+(`Welcome_Letter.pdf`) with Application-level ones (`Bank_Statement.pdf`,
+`Loan_Contract.pdf`) side by side — verified live via
+`GET /index_instances/<id>/nodes/<node_id>/documents/`.
+
+Each index is deliberately scoped to only the document types that actually
+carry that field, rather than all three:
+
+| Index | slug | metadata field | document types attached |
+|---|---|---|---|
+| Customer | `customer` | `customer_id` | Customer, Account, Application Document |
+| Account | `account` | `account_id` | Account, Application Document (not Customer — it has no `account_id`) |
+| Application | `application` | `application_id` | Application Document only |
+
+This scoping is what keeps them simple: because a document type is only
+attached to an index for a field it's guaranteed to have, the node
+expression is just `{{ document.metadata_value_of.<field> }}` with no
+conditional — there's no way to hit an empty value and land in a bogus
+"None" bucket, so none of Gotcha #1's ancestor-condition-repeating trick is
+needed here.
+
+`add_flat_indexes.sh` is idempotent: finds each index template by slug,
+each document-type attachment, and each leaf node by expression, and skips
+whatever's already there. See Gotcha #5 below for a subtlety that bit the
+first version of this script's idempotency check.
 
 ## Adding a document via the Web UI
 
@@ -249,6 +297,31 @@ affected documents were repaired by re-uploading a real minimal PDF
 some.pdf` — a real PDF reports `PDF document, version X.Y, N pages`; the
 old stub reported nothing useful (mimetype sniffing alone, no page count).
 Worth checking before uploading anything through these scripts.
+
+## Gotcha #5: `GET /index_templates/<id>/nodes/` doesn't return a wrapped root
+
+`results` from this endpoint is the **root node's children directly** —
+each with its own nested `"children"` for deeper levels — not a single
+item representing the root itself with those children nested one level
+inside it. Easy to get wrong: the first version of `add_flat_indexes.sh`'s
+idempotency check read `results[0]['children']` (treating the *first
+child* as if it were the root), so on every re-run it found an empty list,
+concluded no leaf node existed yet, and created a duplicate. Caught by
+actually re-running the script and inspecting the tree — two nodes with
+the identical expression, both children of the real root.
+
+**Fix:** check `results` itself for a matching node, not `results[0]['children']`:
+
+```python
+# Wrong -- results[0] is a level-1 node, not the root
+children = data['results'][0]['children']
+
+# Right -- results already *is* the list of the root's children
+any(n['expression'] == target for n in data['results'])
+```
+
+If you ever see a script's idempotency check for index nodes silently
+create duplicates on a second run, check this first.
 
 ## Verifying after setup (or after any node edit)
 
