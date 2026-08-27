@@ -1,13 +1,26 @@
 <div class="modal-box">
   <h2>Edit metadata &mdash; {{ document.label }}</h2>
   <form hx-patch="/documents/{{ document.id }}" hx-target="#modal" hx-swap="innerHTML" hx-indicator="#edit-indicator">
-    {% for field in ["customer_id", "account_id", "application_id", "category"] %}
+    {% for field in ["customer_id", "account_id", "application_id"] %}
     {% if field in metadata %}
     <label>{{ field }}
       <input name="{{ field }}" value="{{ metadata[field] }}" required>
     </label>
     {% endif %}
     {% endfor %}
+    {% if "category" in metadata %}
+    <label>category
+      <select name="category" id="category-select" required>
+        <option value="" disabled>Select category&hellip;</option>
+        {% for option in category_options %}
+        <option value="{{ option }}" {% if option == metadata.category %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+        <option value="__new__">+ Add new category&hellip;</option>
+      </select>
+      <input type="text" name="category_new" id="category-new" placeholder="New category name"
+             style="display:none" required>
+    </label>
+    {% endif %}
     <div class="modal-actions">
       <button type="submit">Save</button>
       <button type="button" hx-get="/documents/{{ document.id }}" hx-target="#modal" hx-swap="innerHTML">Cancel</button>

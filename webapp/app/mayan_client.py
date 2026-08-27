@@ -192,6 +192,18 @@ class MayanClient:
         )
         response.raise_for_status()
 
+    async def find_document_by_uuid(self, uuid: str) -> dict[str, Any] | None:
+        """Looks up a document by its Mayan-assigned UUID (a document field,
+        not any of our metadata types). Uses Mayan's real search backend,
+        not the plain /documents/ list endpoint -- verified directly that a
+        `?uuid=` query param there is silently ignored (count unchanged
+        with/without it), while this search-model endpoint's `uuid` field
+        is a genuine exact-match filter."""
+        response = await self.get("/search/documents.documentsearchresult/", params={"uuid": uuid})
+        response.raise_for_status()
+        results = response.json()["results"]
+        return results[0] if results else None
+
     async def delete_document(self, document_id: int) -> tuple[bool, str | None]:
         try:
             response = await self.delete(f"/documents/{document_id}/")

@@ -1,0 +1,18 @@
+<div class="modal-box">
+  <h2>Search by UUID</h2>
+
+  {% if error %}
+  <div class="alert alert-error">{{ error }}</div>
+  {% endif %}
+
+  <form hx-post="/documents/search-uuid" hx-target="#modal" hx-swap="innerHTML" hx-indicator="#uuid-search-indicator">
+    <label>Document UUID
+      <input name="uuid" value="{{ uuid or '' }}" placeholder="e.g. 58b455aa-9174-4939-ab8c-0f28874aa8ed" required autofocus>
+    </label>
+    <div class="modal-actions">
+      <button type="submit">Search</button>
+      <button type="button" onclick="document.getElementById('modal').innerHTML=''">Cancel</button>
+      <span id="uuid-search-indicator" class="htmx-indicator">Searching…</span>
+    </div>
+  </form>
+</div>

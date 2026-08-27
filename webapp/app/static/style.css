@@ -42,6 +42,11 @@ body {
   margin-bottom: 1rem;
 }
 
+.toolbar-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .search-form {
   display: flex;
   flex-wrap: wrap;

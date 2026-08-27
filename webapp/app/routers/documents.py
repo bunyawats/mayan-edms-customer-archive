@@ -15,16 +15,13 @@ from ..templating import render, render_error
 router = APIRouter()
 
 
-def _filters(
-    customer_id: str, account_id: str, application_id: str, category: str, label: str, unique_ref: str = ""
-) -> dict[str, str]:
+def _filters(customer_id: str, account_id: str, application_id: str, category: str, label: str) -> dict[str, str]:
     return {
         "customer_id": customer_id,
         "account_id": account_id,
         "application_id": application_id,
         "category": category,
         "label": label,
-        "unique_ref": unique_ref,
     }
 
 
@@ -73,10 +70,9 @@ async def list_documents(
     application_id: str = "",
     category: str = "",
     label: str = "",
-    unique_ref: str = "",
     page: int = 1,
 ):
-    filters = _filters(customer_id, account_id, application_id, category, label, unique_ref)
+    filters = _filters(customer_id, account_id, application_id, category, label)
     page = max(1, page)
     try:
         documents, total = await service.search_documents(filters, page=page, page_size=settings.page_size)
@@ -120,6 +116,32 @@ async def new_document_form(request: Request):
     except httpx.HTTPError as exc:
         return render_error(request, f"Could not load categories: {exc}")
     return render(request, "partials/upload_form.html", {"category_options": category_options})
+
+
+@router.get("/documents/search-uuid")
+async def search_by_uuid_form(request: Request):
+    return render(request, "partials/search_uuid_form.html", {})
+
+
+@router.post("/documents/search-uuid")
+async def search_by_uuid(request: Request, uuid: str = Form(...)):
+    uuid = uuid.strip()
+    if not uuid:
+        return render(request, "partials/search_uuid_form.html", {"error": "Enter a UUID."})
+    try:
+        found = await mayan_client.find_document_by_uuid(uuid)
+    except httpx.HTTPError as exc:
+        return render(request, "partials/search_uuid_form.html", {"uuid": uuid, "error": f"Search failed: {exc}"})
+    if not found:
+        return render(
+            request,
+            "partials/search_uuid_form.html",
+            {"uuid": uuid, "error": f"No document found with UUID {uuid}."},
+        )
+    # Reuse document_detail's own rendering rather than duplicating it --
+    # jumping straight to the found document's preview is the point of this
+    # search (UUID uniquely identifies exactly one document).
+    return await document_detail(request, found["id"])
 
 
 @router.post("/documents")
@@ -193,9 +215,14 @@ async def edit_document_form(request: Request, document_id: int):
     try:
         document = await mayan_client.get_document(document_id)
         metadata = await service.get_metadata_map(document_id)
+        category_options = await service.get_category_options()
     except httpx.HTTPStatusError as exc:
         return render_error(request, f"Could not load document: HTTP {exc.response.status_code}")
-    return render(request, "partials/edit_metadata_form.html", {"document": document, "metadata": metadata})
+    return render(
+        request,
+        "partials/edit_metadata_form.html",
+        {"document": document, "metadata": metadata, "category_options": category_options},
+    )
 
 
 @router.patch("/documents/{document_id}")
@@ -206,7 +233,11 @@ async def update_document(
     account_id: str = Form(""),
     application_id: str = Form(""),
     category: str = Form(""),
+    category_new: str = Form(""),
 ):
+    # "__new__" sentinel resolved the same way create_document does — see
+    # its comment for why this happens server-side rather than only in JS.
+    category = category_new.strip() if category == "__new__" else category.strip()
     updates = {
         k: v.strip()
         for k, v in {
@@ -258,7 +289,6 @@ async def bulk_delete_confirm(
     application_id: str = Form(""),
     category: str = Form(""),
     label: str = Form(""),
-    unique_ref: str = Form(""),
     page: int = Form(1),
 ):
     # Selection lives server-side (selection_store), not in this request's
@@ -267,7 +297,7 @@ async def bulk_delete_confirm(
     # exception for the case where that store *doesn't* exist. It does
     # here, so this reads it directly rather than trusting anything the
     # client could echo back.
-    filters = _filters(customer_id, account_id, application_id, category, label, unique_ref)
+    filters = _filters(customer_id, account_id, application_id, category, label)
     unique_ids, error = _dedupe_and_cap(selection_store.get_selected(request.state.session_id))
     items: list = []
     if unique_ids and not error:
@@ -290,10 +320,9 @@ async def bulk_delete_documents(
     application_id: str = Form(""),
     category: str = Form(""),
     label: str = Form(""),
-    unique_ref: str = Form(""),
     page: int = Form(1),
 ):
-    filters = _filters(customer_id, account_id, application_id, category, label, unique_ref)
+    filters = _filters(customer_id, account_id, application_id, category, label)
     session_id = request.state.session_id
     unique_ids, error = _dedupe_and_cap(selection_store.get_selected(session_id))
     status_message, status_class = None, "alert-info"

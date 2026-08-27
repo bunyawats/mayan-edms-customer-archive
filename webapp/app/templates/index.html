@@ -1,6 +1,9 @@
 <section class="toolbar">
   <h1>Customer Archive</h1>
-  <button hx-get="/documents/new" hx-target="#modal" hx-swap="innerHTML">+ New document</button>
+  <div class="toolbar-actions">
+    <button hx-get="/documents/search-uuid" hx-target="#modal" hx-swap="innerHTML">Search by UUID</button>
+    <button hx-get="/documents/new" hx-target="#modal" hx-swap="innerHTML">+ New document</button>
+  </div>
 </section>
 
 <form id="search-form" class="search-form" hx-get="/documents" hx-target="#results" hx-swap="innerHTML"
@@ -15,7 +18,6 @@
     {% endfor %}
   </select>
   <input name="label" placeholder="Filename contains" value="{{ filters.label or '' }}">
-  <input name="unique_ref" placeholder="Unique Ref" value="{{ filters.unique_ref or '' }}">
   <button type="submit">Search</button>
   <span id="search-indicator" class="htmx-indicator">Searching…</span>
 </form>

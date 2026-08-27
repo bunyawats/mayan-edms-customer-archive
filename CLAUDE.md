@@ -45,13 +45,9 @@ MAYAN_PASSWORD=<pw> ./scripts/create_test_documents.sh Cust-1002 Acc-99001 App-1
 
 # File one real file into the hierarchy at a given level
 MAYAN_PASSWORD=<pw> ./scripts/upload_document.sh <file> <customer_id> <category> [account_id] [application_id]
-
-# One-time, after setup_document_hierarchy.sh: adds the unique_ref metadata
-# type and backfills it onto existing documents. Idempotent.
-MAYAN_PASSWORD=<pw> ./scripts/add_unique_ref_metadata.sh
 ```
 
-All four scripts read `MAYAN_URL` / `MAYAN_USER` / `MAYAN_PASSWORD` from
+All three scripts read `MAYAN_URL` / `MAYAN_USER` / `MAYAN_PASSWORD` from
 the environment (defaults: `http://localhost:8000`, `admin`) and require
 `bash`, `curl`, `python3`. They look up metadata/document type IDs by name
 at runtime rather than hardcoding them, so they keep working after a fresh
@@ -70,16 +66,8 @@ node tree, driven by four metadata fields (`customer_id`, `account_id`,
 its level). Mayan re-evaluates every document's position in the tree
 whenever its metadata changes.
 
-A fifth metadata field, `unique_ref` (a generated UUID, added via
-`scripts/add_unique_ref_metadata.sh`), is attached to every document on
-these same three document types but is **not** part of the index tree —
-no node expression references it, so it never affects where a document
-files. It's an identity field: searchable in the webapp, shown read-only
-in its document preview, not user-editable there. See "The `unique_ref`
-metadata field" in `docs/document-hierarchy-setup.md`.
-
 Read `docs/document-hierarchy-setup.md` before touching the index template
-or any script — it documents five non-obvious gotchas that are easy to
+or any script — it documents four non-obvious gotchas that are easy to
 reintroduce:
 
 1. **Empty index-node expressions don't prune the branch.** An ancestor
@@ -105,13 +93,6 @@ reintroduce:
    `file <path>` (should report a real page count), and for anything
    uploaded through these scripts, spot-check the actual rendered page
    image at least once — not just the API response status.
-5. **`required: true` on a document-type metadata field isn't enforced by
-   the API.** Verified directly for `unique_ref`: `POST /documents/` still
-   returns 201 for a document of that type with the field unset. It only
-   drives validation in Mayan's own web upload form. Don't rely on
-   `required` to guarantee an API-created document actually has a field —
-   set it explicitly (as `upload_document.sh`, `create_test_documents.sh`,
-   and the webapp's upload flow all now do for `unique_ref`).
 
 `docs/rca-2026-08-25-document-preview-and-app-outage.md` is the incident
 record for how all of the above were originally found (plus an unrelated

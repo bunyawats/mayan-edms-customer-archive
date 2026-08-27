@@ -9,11 +9,12 @@
   {% endif %}
 
   <table class="metadata-table">
-    {% for field in ["customer_id", "account_id", "application_id", "category", "unique_ref"] %}
+    {% for field in ["customer_id", "account_id", "application_id", "category"] %}
     {% if field in metadata %}
     <tr><th>{{ field }}</th><td>{{ metadata[field] }}</td></tr>
     {% endif %}
     {% endfor %}
+    <tr><th>uuid</th><td>{{ document.uuid }}</td></tr>
   </table>
 
   <div class="modal-actions">
