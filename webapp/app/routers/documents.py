@@ -136,7 +136,10 @@ async def create_document(
         return render_error(request, f"Upload failed: {exc}")
 
     filters = _filters("", "", "", "", "")
-    documents, total = await service.search_documents(filters, page=1, page_size=settings.page_size)
+    try:
+        documents, total = await service.search_documents(filters, page=1, page_size=settings.page_size)
+    except httpx.HTTPError as exc:
+        return render_error(request, f"Upload succeeded, but refresh failed: {exc}")
     total_pages = max(1, math.ceil(total / settings.page_size))
     return render(
         request,
@@ -290,14 +293,23 @@ async def bulk_delete_documents(
     # on ids are done either way, per the pagination-bulk-actions skill.
     selection_store.clear_selected(session_id)
 
-    try:
-        documents, total = await service.search_documents(filters, page=page, page_size=settings.page_size)
-    except httpx.HTTPError as exc:
-        return render_error(request, f"Refresh failed after delete: {exc}")
+    async def _search_or_error(page: int):
+        try:
+            return await service.search_documents(filters, page=page, page_size=settings.page_size), None
+        except httpx.HTTPError as exc:
+            return None, render_error(request, f"Refresh failed after delete: {exc}")
+
+    result, error_response = await _search_or_error(page)
+    if error_response:
+        return error_response
+    documents, total = result
     total_pages = max(1, math.ceil(total / settings.page_size))
     if page > total_pages:
         page = total_pages
-        documents, total = await service.search_documents(filters, page=page, page_size=settings.page_size)
+        result, error_response = await _search_or_error(page)
+        if error_response:
+            return error_response
+        documents, total = result
 
     return render(
         request,
@@ -329,6 +341,7 @@ async def document_preview(document_id: int):
     response = await mayan_client.stream(path)
     return StreamingResponse(
         _iter_and_close(response),
+        status_code=response.status_code,
         media_type=response.headers.get("content-type", "image/jpeg"),
     )
 
@@ -349,6 +362,7 @@ async def document_download(document_id: int):
         headers["Content-Disposition"] = content_disposition
     return StreamingResponse(
         _iter_and_close(response),
+        status_code=response.status_code,
         media_type=response.headers.get("content-type", "application/octet-stream"),
         headers=headers,
     )
