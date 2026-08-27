@@ -1,11 +1,21 @@
 {% set base_qs = "customer_id=" ~ (filters.customer_id or "") ~ "&account_id=" ~ (filters.account_id or "")
   ~ "&application_id=" ~ (filters.application_id or "") ~ "&category=" ~ (filters.category or "")
   ~ "&label=" ~ (filters.label or "") %}
+{% set page_ids = documents | map(attribute="id") | list %}
+{% set page_selected_count = documents | selectattr("id", "in", selected_ids) | list | length %}
 
 {% if status_message %}
 <div class="alert {{ status_class or 'alert-info' }}">{{ status_message }}</div>
 {% endif %}
 
+{#
+  Selection is server-side (selection_store.py), keyed by session cookie,
+  so it survives Prev/Next and search — a plain-DOM checkbox can't, since
+  paginating destroys and rebuilds this whole fragment. This form now only
+  carries filters/page context for the "Delete selected" button (it no
+  longer needs to gather checkbox values — each checkbox persists itself
+  via /documents/select on change).
+#}
 <form id="bulk-delete-form">
   <input type="hidden" name="customer_id" value="{{ filters.customer_id or '' }}">
   <input type="hidden" name="account_id" value="{{ filters.account_id or '' }}">
@@ -16,17 +26,23 @@
 
   <div class="results-toolbar">
     <span>{{ total }} document{{ "s" if total != 1 else "" }}</span>
-    <span class="selection-status">
-      <span id="selected-count">0 selected</span>
-      <button type="button" id="bulk-delete-btn" disabled
-              hx-post="/documents/bulk-delete/confirm" hx-target="#modal" hx-swap="innerHTML">Delete selected</button>
-    </span>
+    {% include "partials/bulk_toolbar.html" %}
   </div>
 
   <table class="results">
     <thead>
       <tr>
-        <th><input type="checkbox" class="select-all" title="Select all on this page"></th>
+        <th>
+          {#
+            document_id is a single comma-joined string of this page's ids,
+            not a JS array field-per-element — see /documents/select's
+            docstring and the htmx4 skill's FormData.set() coercion note.
+          #}
+          <input type="checkbox" class="select-all" title="Select all on this page"
+                 {% if page_ids and page_selected_count == page_ids | length %}checked{% endif %}
+                 hx-post="/documents/select" hx-swap="none"
+                 hx-vals='js:{"document_id": {{ page_ids | tojson }}.join(","), "checked": event.target.checked}'>
+        </th>
         <th>Label</th>
         <th>Type</th>
         <th>Customer</th>
@@ -39,7 +55,12 @@
     <tbody>
       {% for doc in documents %}
       <tr id="doc-row-{{ doc.id }}">
-        <td><input type="checkbox" name="document_id" value="{{ doc.id }}"></td>
+        <td>
+          <input type="checkbox" name="document_id" value="{{ doc.id }}"
+                 {% if doc.id in selected_ids %}checked{% endif %}
+                 hx-post="/documents/select" hx-swap="none"
+                 hx-vals='js:{"document_id": "{{ doc.id }}", "checked": event.target.checked}'>
+        </td>
         <td><a href="#" hx-get="/documents/{{ doc.id }}" hx-target="#modal" hx-swap="innerHTML">{{ doc.label }}</a></td>
         <td>{{ doc.document_type.label }}</td>
         <td>{{ doc._metadata.get("customer_id", "") }}</td>

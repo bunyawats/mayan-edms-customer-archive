@@ -1,0 +1,15 @@
+{% set oob = oob | default(false) %}
+{#
+  Reused two ways (same idiom as review-approval-temporal's
+  _manager_bulk_toolbar.html): included plain inside results_table.html on
+  every normal render, and returned standalone with oob=True by
+  /documents/select so a checkbox click (hx-swap="none" on the checkbox
+  itself) can still refresh the count/button elsewhere on the page in the
+  same response — see the htmx4 skill's note on hx-swap="none" + same-
+  response OOB fragments being independent.
+#}
+<div id="bulk-toolbar" {% if oob %}hx-swap-oob="innerHTML"{% endif %} class="selection-status">
+  <span id="selected-count">{{ selected_ids | length }} selected</span>
+  <button type="button" id="bulk-delete-btn" {% if not selected_ids %}disabled{% endif %}
+          hx-post="/documents/bulk-delete/confirm" hx-target="#modal" hx-swap="innerHTML">Delete selected</button>
+</div>

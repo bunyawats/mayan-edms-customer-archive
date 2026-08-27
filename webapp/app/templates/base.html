@@ -17,34 +17,38 @@
   <script>
     // Delegated on document.body (never replaced by an htmx swap) so this
     // keeps working across every re-render of #results — no per-render
-    // rebinding needed. Selection itself is plain client-side DOM state
-    // (see CLAUDE.md's webapp section for why that's an intentional POC
-    // simplification, not an oversight): nothing here polls or swaps the
-    // table out from under the user, so there's no server-side selection
-    // store to keep in sync.
+    // rebinding needed.
+    //
+    // Selection itself is authoritative server-side (selection_store.py,
+    // keyed by session cookie) precisely because it has to survive
+    // Prev/Next and search destroying and rebuilding this fragment — see
+    // docs/webapp-implementation-plan.md's "Cross-page bulk selection".
+    // Each checkbox persists its own change via hx-post to
+    // /documents/select (hx-swap="none" — the checkbox is already visually
+    // correct the instant it's clicked) and that response OOB-refreshes
+    // #bulk-toolbar (count + button) from the server-known total. The JS
+    // below does *not* touch the count or the button — only two purely
+    // client-side conveniences that don't need a round trip: select-all
+    // instantly toggling this page's visible checkboxes (its own hx-post
+    // still persists the real change), and keeping the header checkbox's
+    // own tri-state (checked/indeterminate) in sync with this page's rows.
     document.body.addEventListener("change", function (e) {
       if (e.target.matches(".select-all")) {
         document.querySelectorAll('#results input[name="document_id"]').forEach(function (cb) {
           cb.checked = e.target.checked;
         });
-        updateBulkToolbar();
       } else if (e.target.matches('input[name="document_id"]')) {
-        updateBulkToolbar();
+        updateSelectAllState();
       }
     });
 
-    function updateBulkToolbar() {
+    function updateSelectAllState() {
       var boxes = document.querySelectorAll('#results input[name="document_id"]');
       var checked = document.querySelectorAll('#results input[name="document_id"]:checked');
-      var countEl = document.getElementById("selected-count");
-      var btn = document.getElementById("bulk-delete-btn");
       var selectAll = document.querySelector("#results .select-all");
-      if (countEl) countEl.textContent = checked.length + " selected";
-      if (btn) btn.disabled = checked.length === 0;
-      if (selectAll) {
-        selectAll.checked = boxes.length > 0 && checked.length === boxes.length;
-        selectAll.indeterminate = checked.length > 0 && checked.length < boxes.length;
-      }
+      if (!selectAll) return;
+      selectAll.checked = boxes.length > 0 && checked.length === boxes.length;
+      selectAll.indeterminate = checked.length > 0 && checked.length < boxes.length;
     }
   </script>
 </body>

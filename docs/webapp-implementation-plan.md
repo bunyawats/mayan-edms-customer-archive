@@ -100,33 +100,87 @@ Added after looking at a heavier reference implementation
 (`bunyawats/review-approval-temporal`, a Temporal + FastAPI + Keycloak
 review/approval app — the real project the `list-pagination-bulk-actions`
 skill's guidance was distilled from) for how it does the same "select
-rows, then act on them" flow, and adapting the *pattern*, not the
-machinery — that project's selection is server-side (Redis, because its
-list self-polls every 5s across a multi-user, multi-role login), which
-this app deliberately doesn't need (see scope decisions below).
+rows, then act on them" flow, and adapting the *pattern*.
 
-- **Header `<th>` checkbox** (`.select-all` in `results_table.html`) toggles
-  every `input[name="document_id"]` checkbox on the current page. Pure
-  client-side JS (`base.html`, delegated on `document.body` so it survives
-  every `#results` swap without rebinding) — no request round-trip, since
-  nothing here needs a server-authoritative selection (see below).
+- **Header `<th>` checkbox** (`.select-all` in `results_table.html`)
+  toggles every `input[name="document_id"]` checkbox on the current page
+  client-side (instant visual feedback), and separately posts the full
+  current-page id list to `/documents/select` to persist the real change
+  (see "Cross-page bulk selection" below for why that persistence has to
+  be server-side, not just DOM state).
 - **"Delete selected" opens a confirm dialog** (`POST
   /documents/bulk-delete/confirm` → `partials/bulk_delete_confirm.html` in
   `#modal`) listing the label/type/customer/category of every selected
   document — re-fetched fresh from Mayan at dialog-render time, not read
   from the client's cached table rows, so a stale or since-changed row
   can't misrepresent what's about to be deleted. Confirming submits a form
-  (embedded in the dialog, carrying the same id list + filters/page as
-  hidden inputs) to the real `POST /documents/bulk-delete`; Cancel just
-  clears `#modal` client-side, no request. Same idiom as the reference
-  project's `_bulk_confirm_dialog.html`, minus the shared-comment field
-  (no analogous use for it here) and the role-conditional columns (this
-  app has one role).
-- Execute (`POST /documents/bulk-delete`) now also emits an OOB
+  (embedded in the dialog, carrying only filters/page as hidden inputs —
+  no id list, see below) to the real `POST /documents/bulk-delete`; Cancel
+  just clears `#modal` client-side, no request. Same idiom as the
+  reference project's `_bulk_confirm_dialog.html`, minus the shared-comment
+  field (no analogous use for it here) and the role-conditional columns
+  (this app has one role).
+- Execute (`POST /documents/bulk-delete`) also emits an OOB
   `<div id="modal" hx-swap-oob="innerHTML"></div>` to close the dialog on
   completion, alongside the refreshed results table — same OOB idiom
   `upload_result.html` already used for the opposite case (primary target
   `#modal`, OOB-refresh `#results`).
+
+### Cross-page bulk selection (bug found post-launch, fixed)
+
+**Bug, reported by the user**: select a document on page 1, page to page 2
+and select another, open the confirm dialog — it only showed the page 2
+document. Bulk delete only ever acted on whatever was checked on the
+*current* page.
+
+**Root cause**: the original design kept selection as plain DOM checkbox
+state inside `#results`, on the reasoning "nothing here self-polls, so
+plain client-side state is fine" (`list-pagination-bulk-actions` skill,
+Part 2, tier 1). That reasoning under-applied the skill's own Part 4
+guidance, which explicitly lists **Prev/Next** as a trigger for this exact
+failure mode alongside self-polling — pagination replaces `#results`'
+entire `innerHTML` via `hx-swap`, destroying every checkbox (and its
+checked state) regardless of whether anything is polling. Tier 1 was never
+actually viable for a paginated multi-select; the original decision
+conflated "no self-polling" with "no destructive re-renders," which are
+different things.
+
+**Fix**: moved selection server-side (`selection_store.py`) — the tier-3
+option the skill describes, matching what `review-approval-temporal`
+already does (their reason is different — a 5s self-poll across
+logged-in users — but the mechanism is the same). Since this app has no
+login, selection is keyed by an opaque per-browser session id set via
+cookie by `SessionCookieMiddleware` (`main.py`) — not auth, just enough to
+stop two different browsers sharing a selection. An in-process
+`dict[str, set[int]]` is sufficient (single-instance POC deployment, same
+as the skill's guidance for this case).
+
+- `POST /documents/select` — one row checkbox posts its own id; the header
+  checkbox posts the current page's full id list (comma-joined into one
+  form field, per the htmx `FormData.set()` array-coercion gotcha the
+  htmx4 skill documents — parsed back with `.split(",")` server-side, not
+  declared as `list[int] = Form(...)`). Response is `hx-swap="none"` (the
+  checkbox is already visually correct) plus an OOB refresh of
+  `partials/bulk_toolbar.html` (count + "Delete selected" enabled state) —
+  now pulled into its own reusable partial for exactly this reason, same
+  restructuring the reference project's `_manager_bulk_toolbar.html` does.
+- `results_table.html` renders each checkbox's `checked` state from
+  `selected_ids` (the full cross-page set passed down from
+  `selection_store.get_selected`), not from anything client-remembered —
+  so navigating back to a page where something was previously checked
+  shows it checked again.
+- `bulk-delete/confirm` and `bulk-delete` (execute) **no longer take a
+  `document_id` param from the client at all** — both read
+  `selection_store.get_selected(session_id)` directly. This is the
+  skill's original "never trust a client-echoed id list — re-derive from
+  the server-side store" rule applying normally, now that a store exists
+  (the exception added to the skill for the no-store case no longer
+  applies to *this* app, though it remains correct guidance for a project
+  that genuinely never needs cross-page selection).
+- Selection clears on a genuine fresh page load (`GET /`) and after
+  bulk-delete executes (success or partial failure) — never on
+  Prev/Next/search, which only *read* the current selection to render
+  checked state. Per the skill's Part 2 clearing guidance.
 
 ### Pagination & bulk-delete: scope decisions
 
@@ -136,25 +190,15 @@ simplified given single shared-account POC scope and small data volume:
 - **No server-side count cache** — Mayan's own list endpoint (or our own
   Python-side filtered list) is cheap at this scale, and the results table
   doesn't self-poll.
-- **No server-side selection store** — checkbox state lives in the DOM only
-  (an HTML `<form>` wrapping the results table). Safe because nothing here
-  polls or swaps the table out from under the user; would need revisiting
-  if a live-refresh feature were added later. This also means the
-  bulk-delete confirm route trusts the client-submitted id list as *which*
-  ids to act on (there's no store to re-derive it from) — the skill was
-  updated with an explicit exception for this tier, since its rule as
-  originally written assumed a server-side store always exists. What still
-  holds regardless of tier: the confirm dialog re-fetches each id's
-  *display* fields from Mayan rather than trusting client-cached text, and
-  the execute route still runs Mayan's own delete (with its own
-  existence/permission checks) per id rather than assuming the batch
-  succeeds.
+- **Selection store is in-process, not Redis** — fine for a single-instance
+  POC deployment; would need a shared store (Redis, as the reference
+  project uses) if this ever ran as more than one replica.
 - **Bulk delete fans out over the single-delete call**
   (`asyncio.gather(mayan_client.delete_document(id) for id in ids)`),
   collecting per-id success/failure rather than all-or-nothing. Input is
-  de-duped and capped (`bulk_delete_max`, default 100) and rejected up
-  front if empty — shared between the confirm and execute routes
-  (`_dedupe_and_cap`) so the cap can't be bypassed by skipping the dialog.
+  capped (`bulk_delete_max`, default 100) and rejected up front if empty —
+  shared between the confirm and execute routes (`_dedupe_and_cap`) so the
+  cap can't be bypassed by skipping the dialog.
 
 ### htmx version
 

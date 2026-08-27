@@ -146,18 +146,28 @@ a hard delete (confirmed via the endpoint's own OPTIONS description) — so
 single/bulk delete in this app are recoverable through Mayan directly, not
 destructive.
 
+**Bulk selection is server-side (`selection_store.py`), not DOM state —
+this is load-bearing, don't revert it.** It was originally plain
+client-side checkboxes and broke the moment a user selected across more
+than one page (Prev/Next replaces `#results`' entire `innerHTML`,
+destroying checkbox state along with it — see
+`docs/webapp-implementation-plan.md`'s "Cross-page bulk selection" section
+for the bug report and full fix writeup). Selection is now keyed by an
+opaque per-browser cookie (`SessionCookieMiddleware` in `main.py` — not
+auth, just enough to stop two browsers sharing a selection) and stored in
+an in-process `dict[str, set[int]]`. Every checkbox (`POST
+/documents/select`) persists itself there; `bulk-delete/confirm` and
+`bulk-delete` **read the selection from the store, not from any
+client-submitted id list** — don't reintroduce a `document_id` form
+param on those two routes, that was exactly the bug.
+
 **Bulk delete goes through a confirm dialog, not a plain `hx-confirm`.**
-Checking rows (header `.select-all` checkbox included) is pure client-side
-JS (`base.html`, no server round-trip); "Delete selected" opens
-`POST /documents/bulk-delete/confirm`, which re-fetches each selected
-document's *current* label/type/metadata from Mayan and renders them in
-`#modal` before the user commits — see
+"Delete selected" opens `POST /documents/bulk-delete/confirm`, which
+re-fetches each selected document's *current* label/type/metadata from
+Mayan and renders them in `#modal` before the user commits — see
 `docs/webapp-implementation-plan.md`'s "Header select-all + bulk-delete
-confirm dialog" section for why (adapted from a heavier reference project)
-and its scope-decisions note on why trusting the client-submitted id list
-at that point is fine here specifically (no server-side selection store
-exists to re-derive it from, by design — the `list-pagination-bulk-actions`
-skill now documents this as an explicit exception, not a violation).
+confirm dialog" section (adapted from a heavier reference project,
+`bunyawats/review-approval-temporal`).
 
 ## Working with credentials
 
